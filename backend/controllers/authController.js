@@ -14,10 +14,8 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const userRole = role === "admin" ? "admin" : "voter";
 
-    // Generate OTP
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     const user = new User({
@@ -33,23 +31,13 @@ exports.register = async (req, res) => {
 
     await user.save();
 
-    // 📧 Send OTP via Ethereal
     await sendEmail(
       email,
       "Email Verification Code",
-      `Hello ${name},
-
-Your verification code is: ${verificationCode}
-
-This code will be used to verify your account.
-
-Online Voting System`
+      `Hello ${name},\n\nYour verification code is: ${verificationCode}\n\nOnline Voting System`
     );
 
-    res.status(201).json({
-      msg: "Registered successfully. Verification code sent to email."
-    });
-
+    res.status(201).json({ msg: "Registered successfully. Verification code sent to email." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -60,7 +48,6 @@ Online Voting System`
 exports.verifyUser = async (req, res) => {
   try {
     const { email, code } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: "User not found" });
 
@@ -83,52 +70,82 @@ exports.verifyUser = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ msg: "Please provide email and password" });
-    }
+    if (!email || !password) return res.status(400).json({ msg: "Please provide email and password" });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-  if (!user.isVerified && user.role !== "admin") {
-  return res.status(400).json({ msg: "Please verify your email first" });
-}
-
+    if (!user.isVerified && user.role !== "admin") {
+      return res.status(400).json({ msg: "Please verify your email first" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     res.json({
       msg: "Login successful",
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role
-      }
+      user: { id: user._id, name: user.name, username: user.username, email: user.email, role: user.role }
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 };
 
-// ================= GET CURRENT USER =================
+// ================= FORGOT PASSWORD =================
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ msg: "Email not found" });
+
+    // Generate a new OTP for reset
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = otp;
+    // Optional: Add an expiry if you updated your model (user.otpExpire = Date.now() + 3600000)
+    await user.save();
+
+    await sendEmail(
+      email,
+      "Password Reset Code",
+      `Your OTP for password reset is: ${otp}\n\nIf you did not request this, please ignore this email.`
+    );
+
+    res.json({ msg: "Reset OTP sent to email" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+// ================= RESET PASSWORD =================
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user || user.verificationCode !== otp) {
+      return res.status(400).json({ msg: "Invalid OTP" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.verificationCode = null; // Clear OTP after use
+    await user.save();
+
+    res.json({ msg: "Password updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
 
 exports.getMe = async (req, res) => {
   try {
-    // req.user is populated by authMiddleware
     const user = await User.findById(req.user.id).select("-password");
     if (!user) return res.status(404).json({ msg: "User not found" });
     res.json(user);

@@ -8,7 +8,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ["admin","voter"], default: "voter" },
   isVerified: { type: Boolean, default: false },
-  verificationCode: String
+  verificationCode: String,
+  otpExpire: Date
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

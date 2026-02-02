@@ -16,6 +16,11 @@ const voteSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  receiptHash: {
+    type: String,
+    required: true,
+    unique: true,
+  }
 }, { timestamps: true });
 
 // Prevent a user from voting in the same election twice at the Database level

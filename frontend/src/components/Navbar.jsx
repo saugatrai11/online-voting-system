@@ -1,149 +1,46 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import React, { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { LogOut, Vote, User } from 'lucide-react';
 
 const Navbar = () => {
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
 
   const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
+    logout();
+    navigate('/login');
   };
 
   return (
-    <nav style={styles.navbar}>
-      {/* Logo */}
-      <h2 style={styles.logo}>🗳️ Voting System</h2>
+    <nav className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50">
+      <div className="max-w-6xl mx-auto flex justify-between items-center">
+        {/* Logo Section */}
+        <Link to="/dashboard" className="flex items-center gap-2 text-blue-600 font-bold text-xl">
+          <Vote size={28} />
+          <span>SmartVote</span>
+        </Link>
 
-      {/* Links */}
-      <ul style={styles.navLinks}>
-        <li><Link to="/" style={styles.link}>Home</Link></li>
-
-        <li><Link to="/about" style={styles.link}>About</Link></li>
-
-        <li><Link to="/elections" style={styles.link}>Elections</Link></li>
-
-        {/* Dropdown */}
-        <li
-          style={styles.dropdown}
-          onMouseEnter={() => setShowDropdown(true)}
-          onMouseLeave={() => setShowDropdown(false)}
-        >
-          <span style={styles.link}>Features ▾</span>
-
-          {showDropdown && (
-            <ul style={styles.dropdownMenu}>
-              <li><Link to="/how-it-works" style={styles.dropdownItem}>How Voting Works</Link></li>
-              <li><Link to="/security" style={styles.dropdownItem}>Security</Link></li>
-              <li><Link to="/results" style={styles.dropdownItem}>Live Results</Link></li>
-              <li><Link to="/faq" style={styles.dropdownItem}>FAQ</Link></li>
-            </ul>
-          )}
-        </li>
-
-        <li><Link to="/contact" style={styles.link}>Contact</Link></li>
-      </ul>
-
-      {/* Right Buttons */}
-      <div>
-        {!token ? (
-          <>
-            <button style={styles.button} onClick={() => navigate("/login")}>Login</button>
-            <button style={styles.buttonOutline} onClick={() => navigate("/register")}>Register</button>
-          </>
-        ) : (
-          <>
-            {role === "admin" && (
-              <button style={styles.button} onClick={() => navigate("/admin")}>
-                Admin Panel
-              </button>
-            )}
-
-            {role === "voter" && (
-              <button style={styles.button} onClick={() => navigate("/voter")}>
-                Dashboard
-              </button>
-            )}
-
-            <button style={styles.logoutBtn} onClick={handleLogout}>Logout</button>
-          </>
-        )}
+        {/* User Info & Logout */}
+        <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center gap-2 text-slate-600 font-medium">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+              <User size={18} />
+            </div>
+            <span className="hidden sm:inline">Voter</span>
+          </div>
+          
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 px-4 py-2 rounded-lg transition-all font-medium cursor-pointer"
+          >
+            <LogOut size={18} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
       </div>
     </nav>
   );
-};
-
-const styles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "14px 30px",
-    background: "#0f172a",
-    color: "white"
-  },
-  logo: {
-    fontWeight: "bold"
-  },
-  navLinks: {
-    listStyle: "none",
-    display: "flex",
-    gap: "20px",
-    alignItems: "center"
-  },
-  link: {
-    textDecoration: "none",
-    color: "white",
-    fontSize: "15px"
-  },
-  dropdown: {
-    position: "relative",
-    cursor: "pointer"
-  },
-  dropdownMenu: {
-    position: "absolute",
-    top: "25px",
-    left: "0",
-    background: "#1e293b",
-    listStyle: "none",
-    padding: "10px",
-    borderRadius: "6px",
-    width: "170px"
-  },
-  dropdownItem: {
-    display: "block",
-    padding: "8px",
-    color: "white",
-    textDecoration: "none"
-  },
-  button: {
-    padding: "8px 14px",
-    marginRight: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    borderRadius: "6px",
-    cursor: "pointer"
-  },
-  buttonOutline: {
-    padding: "8px 14px",
-    border: "1px solid #2563eb",
-    background: "transparent",
-    color: "#2563eb",
-    borderRadius: "6px",
-    cursor: "pointer"
-  },
-  logoutBtn: {
-    padding: "8px 14px",
-    background: "#dc2626",
-    border: "none",
-    color: "white",
-    borderRadius: "6px",
-    cursor: "pointer"
-  }
 };
 
 export default Navbar;
