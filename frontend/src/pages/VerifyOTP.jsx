@@ -9,7 +9,6 @@ const VerifyOTP = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   
-  // Timer State
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
@@ -17,7 +16,6 @@ const VerifyOTP = () => {
   const location = useLocation();
   const email = location.state?.email;
 
-  // Countdown Logic
   useEffect(() => {
     let interval;
     if (timer > 0) {
@@ -26,7 +24,7 @@ const VerifyOTP = () => {
       }, 1000);
     } else {
       setCanResend(true);
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     }
     return () => clearInterval(interval);
   }, [timer]);
@@ -55,9 +53,8 @@ const VerifyOTP = () => {
     setResendLoading(true);
     setError('');
     try {
-      // Ensure this endpoint exists in your backend
       await API.post('/auth/resend-otp', { email });
-      setTimer(60); // Reset timer
+      setTimer(60); 
       setCanResend(false);
       alert("A new OTP has been sent to your email.");
     } catch (err) {
@@ -105,10 +102,10 @@ const VerifyOTP = () => {
           </button>
         </form>
 
-        {/* Resend Section */}
         <div className="mt-6 pt-6 border-t border-slate-100">
           <p className="text-sm text-slate-500 mb-2">Didn't receive the code?</p>
           <button
+            type="button"
             onClick={handleResend}
             disabled={!canResend || resendLoading}
             className={`flex items-center justify-center w-full gap-2 font-semibold text-sm transition-colors ${

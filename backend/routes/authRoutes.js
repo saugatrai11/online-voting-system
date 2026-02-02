@@ -6,22 +6,23 @@ const {
   getMe, 
   verifyUser, 
   forgotPassword, 
-  resetPassword 
+  resetPassword,
+  resendOTP 
 } = require("../controllers/authController");
 
 const auth = require("../middleware/authMiddleware");
 const validatePassword = require("../middleware/validatePassword");
 
 // --- Registration & Verification ---
-// We combine the validation and the register function here
 router.post("/register", validatePassword, register);
-router.post("/verify-otp", verifyUser); // Changed to match your frontend API call
+router.post("/verify-otp", verifyUser);
+router.post("/resend-otp", resendOTP); 
 
 // --- Authentication ---
 router.post("/login", login);
 router.get("/me", auth, getMe);
 
-// --- Password Recovery (NEW) ---
+// --- Password Recovery ---
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 

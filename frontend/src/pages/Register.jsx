@@ -149,6 +149,10 @@ const Register = () => {
             {isSubmitting ? <Loader2 className="animate-spin" /> : <span>Register Now</span>}
           </button>
         </form>
+                <p className="mt-8 text-center text-slate-600 text-sm">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-blue-600 font-bold hover:underline">Login here</Link>
+                </p>
       </div>
     </div>
   );

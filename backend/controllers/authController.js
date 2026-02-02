@@ -66,6 +66,31 @@ exports.verifyUser = async (req, res) => {
   }
 };
 
+// ================= RESEND OTP (NEW) =================
+exports.resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = newOTP;
+    await user.save();
+
+    await sendEmail(
+      email,
+      "New Verification Code",
+      `Hello ${user.name},\n\nYour new verification code is: ${newOTP}\n\nOnline Voting System`
+    );
+
+    res.json({ msg: "New OTP sent to email" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
 // ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
@@ -103,10 +128,8 @@ exports.forgotPassword = async (req, res) => {
 
     if (!user) return res.status(404).json({ msg: "Email not found" });
 
-    // Generate a new OTP for reset
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationCode = otp;
-    // Optional: Add an expiry if you updated your model (user.otpExpire = Date.now() + 3600000)
     await user.save();
 
     await sendEmail(
@@ -128,13 +151,14 @@ exports.resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
     const user = await User.findOne({ email });
 
+    // Real-world logic: clear OTP flow on failure
     if (!user || user.verificationCode !== otp) {
-      return res.status(400).json({ msg: "Invalid OTP" });
+      return res.status(400).json({ msg: "Invalid OTP. Please try again or resend code." });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
-    user.verificationCode = null; // Clear OTP after use
+    user.verificationCode = null; 
     await user.save();
 
     res.json({ msg: "Password updated successfully" });
