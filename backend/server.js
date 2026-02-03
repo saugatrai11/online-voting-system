@@ -4,14 +4,32 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const initCronJobs = require("./utils/cronJobs");
 
-// Load Environment Variables
 dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(express.json()); // Essential for parsing JSON bodies        
-app.use(cors());
+// --- 🛡️ PRO TWEAK: STRICT CORS POLICY ---
+const allowedOrigins = [
+  "http://localhost:3000", // Standard React/Vite dev port
+  "http://localhost:5173", // Standard Vite dev port
+  process.env.FRONTEND_URL  // Your future production URL
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl) 
+    // but restrict web browsers to allowedOrigins
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS Policy - Security Blocked"));
+    }
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
@@ -19,29 +37,23 @@ app.use("/api/elections", require("./routes/electionRoutes"));
 app.use("/api/candidates", require("./routes/candidateRoutes"));
 app.use("/api/vote", require("./routes/voteRoutes"));
 
-// Default Route for Health Check
 app.get("/", (req, res) => {
-  res.send("Online Voting System API is running...");
+  res.send("Online Voting System API is running securely...");
 });
 
-// Database Connection & Server Start
 const PORT = process.env.PORT || 5000;
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected successfully");
-
-    // Start the server only after DB connection is successful
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      
-      // Start the Automation Engine (Cron Jobs)
       initCronJobs();
       console.log("⏰ Background Automation (Cron) started");
     });
   })
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
-    process.exit(1); // Stop the process if DB connection fails
+    process.exit(1);
   });

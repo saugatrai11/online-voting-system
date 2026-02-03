@@ -1,4 +1,5 @@
 const express = require("express");
+const {validate, registerSchema} = require("../middleware/validate");
 const router = express.Router();
 const { 
   register, 
@@ -25,5 +26,7 @@ router.get("/me", auth, getMe);
 // --- Password Recovery ---
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+
+router.post("/register", validate(registerSchema), register);
 
 module.exports = router;

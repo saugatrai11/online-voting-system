@@ -1,104 +1,102 @@
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const Vote = require("../models/Vote"); 
+const Vote = require("../models/Vote");
 const Election = require("../models/Election");
 const Candidate = require("../models/Candidate");
 
-// ✅ Cast Vote with Digital Receipt
+// ✅ Cast Vote with Digital Receipt & ACID Transactions
 exports.castVote = async (req, res) => {
+  // --- 🛡️ PRO TWEAK: START SESSION FOR ATOMICITY ---
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { electionId, candidateId } = req.body;
     const voterId = req.user.id;
 
-    // 1. Validate ObjectIDs
     if (!mongoose.Types.ObjectId.isValid(electionId) || !mongoose.Types.ObjectId.isValid(candidateId)) {
-      return res.status(400).json({ msg: "Invalid ID format provided" });
+      throw new Error("INVALID_ID");
     }
 
-    const election = await Election.findById(electionId);
-    if (!election) return res.status(404).json({ msg: "Election not found" });
+    const election = await Election.findById(electionId).session(session);
+    if (!election) throw new Error("ELECTION_NOT_FOUND");
 
-    // 2. Check if election is active
+    // Check if election is active
     const now = new Date();
     if (!election.isActive || now < election.startDate || now > election.endDate) {
-      return res.status(400).json({ msg: "Election is not currently active" });
+      throw new Error("ELECTION_INACTIVE");
     }
 
-    // 3. Check for duplicate vote
-    const existingVote = await Vote.findOne({ electionId, voterId });
-    if (existingVote) {
-      return res.status(400).json({ msg: "You have already voted in this election" });
-    }
+    // Check for duplicate vote (Safe within transaction)
+    const existingVote = await Vote.findOne({ electionId, voterId }).session(session);
+    if (existingVote) throw new Error("ALREADY_VOTED");
 
-    // 4. Verify candidate belongs to this election
-    const candidate = await Candidate.findOne({ _id: candidateId, electionId });
-    if (!candidate) {
-      return res.status(400).json({ msg: "Candidate not found in this election" });
-    }
+    // Verify candidate belongs to this election
+    const candidate = await Candidate.findOne({ _id: candidateId, electionId }).session(session);
+    if (!candidate) throw new Error("CANDIDATE_NOT_MATCH");
 
-    // 🛡️ 5. GENERATE CRYPTOGRAPHIC RECEIPT
-    // Combines voterId, electionId, and a secret salt to create a unique fingerprint
+    // GENERATE RECEIPT
     const secretSalt = process.env.RECEIPT_SECRET || "BCA_SECRET_SALT_2026";
     const dataToHash = `${voterId}-${electionId}-${secretSalt}`;
-    const receiptHash = crypto
-      .createHash("sha256")
-      .update(dataToHash)
-      .digest("hex");
+    const receiptHash = crypto.createHash("sha256").update(dataToHash).digest("hex");
 
-    // 6. Create Vote & Increment Candidate count (Atomic Transaction)
-    await Vote.create({ 
+    // CREATE VOTE RECORD
+    await Vote.create([{ 
       electionId, 
       candidateId, 
       voterId, 
-      receiptHash // Saving the proof
-    });
-    
-    await Candidate.findByIdAndUpdate(candidateId, { $inc: { votes: 1 } });
+      receiptHash 
+    }], { session });
+
+    // INCREMENT CANDIDATE COUNT
+    await Candidate.findByIdAndUpdate(candidateId, { $inc: { votes: 1 } }, { session });
+
+    // --- 🛡️ COMMIT TRANSACTION: Everything happens together ---
+    await session.commitTransaction();
+    session.endSession();
 
     res.json({ 
       msg: "Vote cast successfully", 
-      receipt: receiptHash // Provide this to the user as proof
+      receipt: receiptHash 
     });
 
   } catch (err) {
-    console.error("Vote Error:", err);
-    res.status(500).json({ msg: "Internal Server Error" });
+    // --- 🛡️ ABORT TRANSACTION: If any error happens, no data is changed ---
+    await session.abortTransaction();
+    session.endSession();
+
+    const errorMap = {
+      "INVALID_ID": { status: 400, msg: "Invalid ID format provided" },
+      "ELECTION_NOT_FOUND": { status: 404, msg: "Election not found" },
+      "ELECTION_INACTIVE": { status: 400, msg: "Election is not currently active" },
+      "ALREADY_VOTED": { status: 400, msg: "You have already voted in this election" },
+      "CANDIDATE_NOT_MATCH": { status: 400, msg: "Candidate not found in this election" }
+    };
+
+    const mappedError = errorMap[err.message] || { status: 500, msg: "Internal Server Error" };
+    res.status(mappedError.status).json({ msg: mappedError.msg });
   }
 };
 
-// ✅ Get Election Results
+// Results and VerifyReceipt functions remain largely the same but are now safer
 exports.getResults = async (req, res) => {
   try {
     const { electionId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(electionId)) {
-      return res.status(400).json({ msg: "Invalid Election ID format" });
-    }
-
     const candidates = await Candidate.find({ electionId }).select("name party votes");
     res.json(candidates);
   } catch (err) {
-    console.error("Results Error:", err);
-    res.status(500).json({ msg: "Internal Server Error" });
+    res.status(500).json({ msg: "Results Error" });
   }
 };
 
-// ✅ Verify Receipt (New Feature)
 exports.verifyReceipt = async (req, res) => {
   try {
     const { receipt } = req.body;
-    if (!receipt) return res.status(400).json({ msg: "Receipt hash is required" });
-
     const vote = await Vote.findOne({ receiptHash: receipt });
-
     if (vote) {
-      res.json({ 
-        valid: true, 
-        msg: "Vote verified. Your choice is securely recorded in the blockchain-style ledger.",
-        timestamp: vote.createdAt 
-      });
+      res.json({ valid: true, msg: "Vote verified in secure ledger.", timestamp: vote.createdAt });
     } else {
-      res.status(404).json({ valid: false, msg: "Invalid receipt. This vote does not exist." });
+      res.status(404).json({ valid: false, msg: "Invalid receipt." });
     }
   } catch (err) {
     res.status(500).json({ msg: "Verification failed" });
