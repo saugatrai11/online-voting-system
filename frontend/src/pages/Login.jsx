@@ -20,7 +20,11 @@ const Login = () => {
 
     try {
       const res = await API.post('/auth/login', formData);
-      login(res.data.token, res.data.user); 
+      
+      // ✅ FIX: Match the AuthContext logic (userData, token)
+      // res.data.user contains { name, role, email, etc. }
+      // res.data.token contains the JWT string
+      login(res.data.user, res.data.token); 
       
       if (res.data.user.role === 'admin') {
         navigate('/admin-dashboard');
@@ -47,7 +51,7 @@ const Login = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm flex items-center gap-3 animate-pulse">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm flex items-center gap-3">
             <AlertCircle size={18} />
             <p>{error}</p>
           </div>
