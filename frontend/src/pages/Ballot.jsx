@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../api/axios';
 import { 
-  ShieldCheck, 
   Loader2, 
-  ArrowLeft, 
-  AlertTriangle, 
   CheckCircle2, 
-  User,
-  Info
+  AlertCircle, 
+  ArrowLeft, 
+  ShieldCheck 
 } from 'lucide-react';
 
 const Ballot = () => {
@@ -16,156 +14,148 @@ const Ballot = () => {
   const navigate = useNavigate();
   
   const [candidates, setCandidates] = useState([]);
+  const [election, setElection] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isVoting, setIsVoting] = useState(false);
-  const [voteSuccess, setVoteSuccess] = useState(false);
-  const [receipt, setReceipt] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   useEffect(() => {
-    const fetchCandidates = async () => {
+    const fetchBallotData = async () => {
       try {
         setLoading(true);
-        // Ensure the electionId exists before calling API
-        if (!electionId) return;
-        
-        const res = await API.get(`/candidates/${electionId}`);
-        setCandidates(res.data);
+        // Fetch Election details and Candidates in parallel
+        const [electionRes, candidateRes] = await Promise.all([
+          API.get(`/elections/${electionId}`),
+          API.get(`/candidates/election/${electionId}`) 
+        ]);
+        setElection(electionRes.data);
+        setCandidates(candidateRes.data);
       } catch (err) {
-        console.error("Failed to load candidates:", err);
+        console.error("Ballot Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchCandidates();
+    if (electionId) fetchBallotData();
   }, [electionId]);
 
-  const handleVote = async (candidateId, candidateName) => {
-    // Confirmation Dialog
+  // ✅ New Function to handle the voting process
+  const handleVoteSubmission = async () => {
+    if (!selectedCandidate) return;
+
     const confirmVote = window.confirm(
-      `Confirm Vote: Are you sure you want to vote for ${candidateName}? This cannot be reversed.`
+      "Are you sure you want to cast your vote? This action cannot be undone."
     );
-    
     if (!confirmVote) return;
 
-    setIsVoting(true);
+    setSubmitting(true);
     try {
-      const response = await API.post('/vote', {
+      // Matches your backend route: router.post("/", auth, castVote)
+      const res = await API.post('/vote', {
         electionId,
-        candidateId
+        candidateId: selectedCandidate
       });
 
-      setReceipt(response.data.receipt);
-      setVoteSuccess(true);
+      // Show the receipt from your crypto.createHash logic
+      alert(`Vote Cast Successfully!\n\nYour Receipt: ${res.data.receipt.substring(0, 12)}...`);
+      
+      // Redirect user to dashboard
+      navigate('/dashboard');
     } catch (err) {
-      const errorMsg = err.response?.data?.msg || "Voting failed. You might have already voted in this election.";
+      console.error("Voting Error:", err);
+      const errorMsg = err.response?.data?.msg || "An error occurred while casting your vote.";
       alert(errorMsg);
     } finally {
-      setIsVoting(false);
+      setSubmitting(false);
     }
   };
 
-  // 1. Loading State
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-50">
-      <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
-      <p className="text-slate-500 font-medium animate-pulse">Loading Official Ballot...</p>
+    <div className="flex h-screen flex-col items-center justify-center bg-slate-50">
+      <Loader2 className="animate-spin text-blue-600 mb-2" size={40} />
+      <p className="text-slate-500 font-medium">Preparing Secure Ballot...</p>
     </div>
   );
 
-  // 2. Vote Success View (Receipt)
-  if (voteSuccess) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-green-100">
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 size={48} />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Vote Recorded</h2>
-          <p className="text-slate-500 mb-6 text-sm">Your vote was successfully hashed and stored on the secure ledger.</p>
-          
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-8 text-left">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-widest">Digital Verification Receipt</p>
-            <code className="text-[11px] break-all text-blue-700 font-mono leading-relaxed block bg-white p-2 border border-slate-100 rounded">
-              {receipt}
-            </code>
-          </div>
-
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-lg"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         <button 
-          onClick={() => navigate('/dashboard')} 
-          className="flex items-center gap-2 text-slate-500 mb-8 hover:text-blue-600 transition-colors font-medium"
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-6 transition-colors font-medium border-none bg-transparent cursor-pointer"
         >
           <ArrowLeft size={18} /> Exit to Dashboard
         </button>
-        
-        <div className="mb-8 border-l-4 border-blue-600 pl-6">
-          <h1 className="text-3xl font-bold text-slate-900">Official Ballot</h1>
-          <p className="text-slate-500 mt-1">Please select your preferred candidate below.</p>
-        </div>
 
-        {/* 3. Empty State Logic (Better UI) */}
-        {candidates.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm text-center">
-            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Info size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800">No Candidates Found</h3>
-            <p className="text-slate-500 mt-2 max-w-xs mx-auto">
-              There are currently no candidates assigned to this election. Please contact the administrator.
-            </p>
-            <div className="mt-6 pt-6 border-t border-slate-50">
-              <p className="text-[10px] text-slate-300 font-mono">REF_ID: {electionId}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {candidates.map((c) => (
-              <div 
-                key={c._id} 
-                className="bg-white p-5 rounded-2xl border border-slate-200 flex justify-between items-center hover:border-blue-300 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-bold text-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    {c.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-800">{c.name}</h3>
-                    <p className="text-blue-600 text-sm font-bold bg-blue-50 px-2 py-0.5 rounded inline-block">
-                      {c.party}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  disabled={isVoting}
-                  onClick={() => handleVote(c._id, c.name)}
-                  className="bg-slate-900 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:bg-slate-200 disabled:text-slate-400 flex items-center gap-2"
-                >
-                  {isVoting ? <Loader2 size={18} className="animate-spin" /> : "Cast Vote"}
-                </button>
+        <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-200">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="bg-blue-50 p-3 rounded-full text-blue-600">
+                <ShieldCheck size={32} />
               </div>
-            ))}
+            </div>
+            <h1 className="text-3xl font-black text-slate-900">Official Ballot</h1>
+            <p className="text-blue-600 font-bold mt-1 uppercase tracking-tight">
+              {election?.title || "Active Election"}
+            </p>
+            <p className="text-slate-500 mt-2">Please select your preferred candidate below.</p>
           </div>
-        )}
 
-        <div className="mt-12 py-6 border-t border-slate-200 flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-full text-xs font-bold">
-            <ShieldCheck size={16} /> End-to-End Encryption Verified
+          <div className="space-y-4">
+            {candidates.length > 0 ? (
+              candidates.map((candidate) => (
+                <div 
+                  key={candidate._id}
+                  onClick={() => !submitting && setSelectedCandidate(candidate._id)}
+                  className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                    selectedCandidate === candidate._id 
+                    ? "border-blue-600 bg-blue-50/50 ring-4 ring-blue-50" 
+                    : "border-slate-100 hover:border-blue-200 bg-slate-50/30"
+                  } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-xl font-bold text-slate-400 uppercase">
+                      {candidate.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{candidate.name}</h3>
+                      <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+                        {candidate.party}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedCandidate === candidate._id && (
+                    <CheckCircle2 className="text-blue-600" size={24} />
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
+                <AlertCircle className="mx-auto text-slate-300 mb-3" size={40} />
+                <p className="text-slate-500 font-medium">No Candidates Found</p>
+                <p className="text-slate-400 text-sm italic mt-1">REF_ID: {electionId}</p>
+              </div>
+            )}
           </div>
-          <p className="text-slate-400 text-[10px] text-center max-w-sm">
-            Your vote is anonymized using SHA-256 hashing. Once cast, your identity is disconnected from your choice to ensure total privacy.
+
+          {/* ✅ Connect the handleVoteSubmission to the button */}
+          <button 
+            onClick={handleVoteSubmission}
+            disabled={!selectedCandidate || submitting}
+            className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed flex items-center justify-center gap-3"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Encrypting & Casting...
+              </>
+            ) : (
+              "Cast Secure Vote"
+            )}
+          </button>
+          
+          <p className="text-center text-[10px] text-slate-400 mt-6 uppercase tracking-widest font-bold">
+            Powered by Secure Ledger Technology v2.0
           </p>
         </div>
       </div>

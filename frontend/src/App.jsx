@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword';
 import VerifyOTP from './pages/VerifyOTP';
 import Ballot from './pages/Ballot';
 import AdminDashboard from './pages/AdminDashboard';
+import ManageCandidates from './pages/ManageCandidates';
 
 // Components
 import Navbar from './components/Navbar';
@@ -55,6 +56,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/candidates/:electionId" element={<ManageCandidates />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -74,6 +76,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/admin/candidates/:electionId" element={<ManageCandidates />} />
 
           {/* Root Redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

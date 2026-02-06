@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API from '../api/axios';
 import { 
   PlusCircle, 
@@ -7,16 +8,15 @@ import {
   XCircle, 
   Loader2,
   LayoutDashboard,
-  Calendar,
-  Type
+  Calendar
 } from 'lucide-react';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate(); // ✅ Initialize navigate hook
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   
-  // ✅ Initial state with all required fields
   const initialFormState = { 
     title: '', 
     description: '', 
@@ -45,11 +45,10 @@ const AdminDashboard = () => {
   const handleCreateElection = async (e) => {
     e.preventDefault();
     try {
-      // ✅ Sending all data including dates to the backend
       await API.post('/elections/create', newElection);
       setShowModal(false);
-      setNewElection(initialFormState); // Reset form
-      fetchElections(); // Refresh list
+      setNewElection(initialFormState);
+      fetchElections();
     } catch (err) {
       const errorMsg = err.response?.data?.msg || "Failed to create election";
       alert(errorMsg);
@@ -90,7 +89,6 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        {/* Election Management Table */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -131,10 +129,12 @@ const AdminDashboard = () => {
                       >
                         {election.isActive ? "Close Election" : "Open Election"}
                       </button>
+                      
+                      {/* ✅ Corrected Navigation using navigate() */}
                       <button 
-                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors inline-flex items-center justify-center bg-slate-100 rounded-lg"
+                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors inline-flex items-center justify-center bg-slate-100 rounded-lg hover:bg-blue-50"
                         title="Manage Candidates"
-                        onClick={() => window.location.href = `/admin/candidates/${election._id}`}
+                        onClick={() => navigate(`/admin/candidates/${election._id}`)}
                       >
                         <Users size={18} />
                       </button>
@@ -150,7 +150,6 @@ const AdminDashboard = () => {
           </table>
         </div>
 
-        {/* ✅ Create Election Modal with Date Pickers */}
         {showModal && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl overflow-y-auto max-h-[95vh]">
