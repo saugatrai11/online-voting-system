@@ -15,14 +15,12 @@ export const AuthProvider = ({ children }) => {
         try {
           setUser(JSON.parse(savedUser));
         } catch (err) {
-          console.error("Failed to parse user from storage", err);
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
+          console.error("Auth initialization failed:", err);
+          localStorage.clear();
         }
       }
       setLoading(false);
     };
-
     initializeAuth();
   }, []);
 
@@ -33,13 +31,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.clear();
     setUser(null);
   };
 
-  // We add a way to update user data without logging out
-  // Useful for updating profile or voting status
   const updateUser = (newUserData) => {
     localStorage.setItem("user", JSON.stringify(newUserData));
     setUser(newUserData);
@@ -47,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

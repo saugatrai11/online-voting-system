@@ -11,11 +11,6 @@ const voteSchema = new mongoose.Schema({
     ref: "Candidate",
     required: true,
   },
-  voterId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
   receiptHash: {
     type: String,
     required: true,
@@ -23,7 +18,7 @@ const voteSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Prevent a user from voting in the same election twice at the Database level
-voteSchema.index({ electionId: 1, voterId: 1 }, { unique: true });
+// Index for fast result lookups
+voteSchema.index({ electionId: 1 });
 
 module.exports = mongoose.model("Vote", voteSchema);

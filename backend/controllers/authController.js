@@ -3,6 +3,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../config/mail");
 
+// Helper to set OTP expiry (e.g., 15 minutes from now)
+const getOTPExpiry = () => new Date(Date.now() + 15 * 60 * 1000);
+
 // ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
@@ -26,6 +29,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       role: userRole,
       verificationCode,
+      otpExpire: getOTPExpiry(), // Added expiry
       isVerified: false
     });
 
@@ -34,13 +38,13 @@ exports.register = async (req, res) => {
     await sendEmail(
       email,
       "Email Verification Code",
-      `Hello ${name},\n\nYour verification code is: ${verificationCode}\n\nOnline Voting System`
+      `Hello ${name},\n\nYour verification code is: ${verificationCode}. It will expire in 15 minutes.\n\nOnline Voting System`
     );
 
     res.status(201).json({ msg: "Registered successfully. Verification code sent to email." });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error during registration" });
   }
 };
 
@@ -51,22 +55,28 @@ exports.verifyUser = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: "User not found" });
 
+    // 🛡️ SECURITY CHECK: Check if OTP is expired
+    if (user.otpExpire && new Date() > user.otpExpire) {
+      return res.status(400).json({ msg: "OTP has expired. Please request a new one." });
+    }
+
     if (user.verificationCode !== code) {
       return res.status(400).json({ msg: "Invalid verification code" });
     }
 
     user.isVerified = true;
     user.verificationCode = null;
+    user.otpExpire = null; // Clear expiry after use
     await user.save();
 
     res.json({ msg: "Account verified successfully" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error during verification" });
   }
 };
 
-// ================= RESEND OTP (NEW) =================
+// ================= RESEND OTP =================
 exports.resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -76,18 +86,19 @@ exports.resendOTP = async (req, res) => {
 
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationCode = newOTP;
+    user.otpExpire = getOTPExpiry(); // 🛡️ Reset expiry timer
     await user.save();
 
     await sendEmail(
       email,
       "New Verification Code",
-      `Hello ${user.name},\n\nYour new verification code is: ${newOTP}\n\nOnline Voting System`
+      `Hello ${user.name},\n\nYour new verification code is: ${newOTP}. Valid for 15 minutes.\n\nOnline Voting System`
     );
 
     res.json({ msg: "New OTP sent to email" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error resending OTP" });
   }
 };
 
@@ -116,7 +127,7 @@ exports.login = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error during login" });
   }
 };
 
@@ -130,18 +141,19 @@ exports.forgotPassword = async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationCode = otp;
+    user.otpExpire = getOTPExpiry(); // 🛡️ Set expiry for reset code
     await user.save();
 
     await sendEmail(
       email,
       "Password Reset Code",
-      `Your OTP for password reset is: ${otp}\n\nIf you did not request this, please ignore this email.`
+      `Your OTP for password reset is: ${otp}\nValid for 15 minutes.\n\nIf you did not request this, please ignore this email.`
     );
 
     res.json({ msg: "Reset OTP sent to email" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error in forgot password" });
   }
 };
 
@@ -151,20 +163,27 @@ exports.resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
     const user = await User.findOne({ email });
 
-    // Real-world logic: clear OTP flow on failure
-    if (!user || user.verificationCode !== otp) {
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    // 🛡️ SECURITY CHECK: Check if Reset OTP is expired
+    if (user.otpExpire && new Date() > user.otpExpire) {
+        return res.status(400).json({ msg: "Reset code expired. Please request a new one." });
+    }
+
+    if (user.verificationCode !== otp) {
       return res.status(400).json({ msg: "Invalid OTP. Please try again or resend code." });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     user.verificationCode = null; 
+    user.otpExpire = null; // Clear expiry
     await user.save();
 
     res.json({ msg: "Password updated successfully" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error resetting password" });
   }
 };
 
@@ -174,6 +193,6 @@ exports.getMe = async (req, res) => {
     if (!user) return res.status(404).json({ msg: "User not found" });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ msg: "Server error fetching user data" });
   }
 };

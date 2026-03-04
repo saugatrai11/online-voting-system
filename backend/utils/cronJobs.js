@@ -2,13 +2,14 @@ const cron = require("node-cron");
 const Election = require("../models/Election");
 
 const initCronJobs = () => {
-  // This cron expression "* * * * *" means "Run every single minute"
-  // For a real app, you might run it once at midnight "0 0 * * *"
-  cron.schedule("* * * * *", async () => {
+  // 🕒 CHANGE: Run every 5 minutes "*/5 * * * *" 
+  // This reduces CPU load while still being "real-time" enough for an election.
+  cron.schedule("*/5 * * * *", async () => {
     try {
       const now = new Date();
 
-      // 1. Automatically ACTIVATE elections that have reached their startDate
+      // We combine these into a single database call or run them sequentially
+      // 1. Activate elections
       const activated = await Election.updateMany(
         { 
           startDate: { $lte: now }, 
@@ -18,7 +19,7 @@ const initCronJobs = () => {
         { $set: { isActive: true } }
       );
 
-      // 2. Automatically DEACTIVATE elections that have passed their endDate
+      // 2. Deactivate elections
       const deactivated = await Election.updateMany(
         { 
           endDate: { $lt: now }, 
@@ -28,7 +29,7 @@ const initCronJobs = () => {
       );
 
       if (activated.modifiedCount > 0 || deactivated.modifiedCount > 0) {
-        console.log(`[Automation] ${activated.modifiedCount} started, ${deactivated.modifiedCount} ended.`);
+        console.log(`[Automation] ${new Date().toISOString()}: ${activated.modifiedCount} activated, ${deactivated.modifiedCount} closed.`);
       }
     } catch (err) {
       console.error("[Cron Error]:", err);
