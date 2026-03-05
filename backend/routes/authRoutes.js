@@ -1,6 +1,6 @@
 const express = require("express");
-const {validate, registerSchema} = require("../middleware/validate");
 const router = express.Router();
+const { validate, registerSchema } = require("../middleware/validate");
 const { 
   register, 
   login, 
@@ -15,7 +15,8 @@ const auth = require("../middleware/authMiddleware");
 const validatePassword = require("../middleware/validatePassword");
 
 // --- Registration & Verification ---
-router.post("/register", validatePassword, register);
+// 🛡️ FIXED: Combined Zod validation and Password Strength check in one route
+router.post("/register", validate(registerSchema), validatePassword, register);
 router.post("/verify-otp", verifyUser);
 router.post("/resend-otp", resendOTP); 
 
@@ -26,7 +27,5 @@ router.get("/me", auth, getMe);
 // --- Password Recovery ---
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
-
-router.post("/register", validate(registerSchema), register);
 
 module.exports = router;
