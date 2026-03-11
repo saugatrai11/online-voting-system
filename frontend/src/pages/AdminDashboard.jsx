@@ -11,7 +11,9 @@ import {
   LayoutDashboard, 
   Calendar,
   X,
-  FileText
+  FileText,
+  ShieldCheck,
+  MapPin
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -22,16 +24,24 @@ const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
+  // Updated state to include minAge and requiredDistrict
   const initialFormState = { 
     title: '', 
     description: '', 
     type: 'National', 
     startDate: '', 
-    endDate: '' 
+    endDate: '',
+    minAge: 18,
+    requiredDistrict: 'All'
   };
   const [newElection, setNewElection] = useState(initialFormState);
 
-  // 🛡️ SECURITY: Prevent non-admin access
+  // List of some common districts for selection (You can expand this)
+  const nepalDistricts = [
+    "Kathmandu", "Lalitpur", "Bhaktapur", "Kaski", "Chitwan", "Morang", 
+    "Sunsari", "Jhapa", "Rupandehi", "Banke", "Kailali", "Dhanusa", "Parsa"
+  ];
+
   useEffect(() => {
     if (user && user.role !== 'admin') {
       navigate('/dashboard');
@@ -56,7 +66,6 @@ const AdminDashboard = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // API call to backend route: router.post("/create", auth, admin, createElection)
       await API.post('/elections/create', newElection);
       setShowModal(false);
       setNewElection(initialFormState);
@@ -70,7 +79,6 @@ const AdminDashboard = () => {
 
   const toggleStatus = async (id) => {
     try {
-      // API call to backend route: router.put("/toggle/:id", auth, admin, toggleStatus)
       await API.put(`/elections/toggle/${id}`);
       fetchElections();
     } catch (err) {
@@ -94,7 +102,7 @@ const AdminDashboard = () => {
             <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
               <LayoutDashboard className="text-blue-600" size={32} /> Admin Control Panel
             </h1>
-            <p className="text-slate-500 mt-1">Manage global elections and candidate rosters</p>
+            <p className="text-slate-500 mt-1">Manage global elections and eligibility rules</p>
           </div>
           <button 
             onClick={() => setShowModal(true)} 
@@ -109,7 +117,7 @@ const AdminDashboard = () => {
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Election Details</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Election & Rules</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
@@ -121,13 +129,16 @@ const AdminDashboard = () => {
                   <tr key={election._id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-900">{election.title}</div>
-                      <div className="text-xs text-slate-400">{election._id}</div>
+                      <div className="flex gap-2 mt-1">
+                         <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 flex items-center gap-1">
+                           <ShieldCheck size={10}/> Age: {election.minAge}+
+                         </span>
+                         <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 flex items-center gap-1">
+                           <MapPin size={10}/> {election.requiredDistrict}
+                         </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-1 rounded-md uppercase">
-                        {election.type}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{election.type}</td>
                     <td className="px-6 py-4">
                       {election.isActive ? (
                         <span className="flex items-center gap-1 text-green-600 text-xs font-bold bg-green-50 px-2.5 py-1 rounded-full w-fit">
@@ -149,12 +160,11 @@ const AdminDashboard = () => {
                             : "border-green-200 text-green-600 hover:bg-green-50"
                           }`}
                         >
-                          {election.isActive ? "End Election" : "Start Election"}
+                          {election.isActive ? "End" : "Start"}
                         </button>
                         <button 
                           onClick={() => navigate(`/admin/candidates/${election._id}`)} 
                           className="p-2 text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Manage Candidates"
                         >
                           <Users size={18} />
                         </button>
@@ -164,9 +174,7 @@ const AdminDashboard = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center text-slate-400 italic">
-                    No elections found. Click "Create New Election" to begin.
-                  </td>
+                  <td colSpan="4" className="px-6 py-12 text-center text-slate-400 italic">No elections found.</td>
                 </tr>
               )}
             </tbody>
@@ -177,13 +185,8 @@ const AdminDashboard = () => {
       {/* --- Create Election Modal --- */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl relative">
-            <button 
-              onClick={() => setShowModal(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600"
-            >
-              <X size={24} />
-            </button>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-400"><X size={24} /></button>
 
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><FileText size={24} /></div>
@@ -195,8 +198,7 @@ const AdminDashboard = () => {
                 <label className="block text-sm font-bold text-slate-700 mb-1">Title</label>
                 <input 
                   type="text" required
-                  placeholder="e.g., General Election 2026"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   value={newElection.title}
                   onChange={(e) => setNewElection({...newElection, title: e.target.value})}
                 />
@@ -206,11 +208,34 @@ const AdminDashboard = () => {
                 <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
                 <textarea 
                   required
-                  placeholder="Provide details for voters..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-20 outline-none"
                   value={newElection.description}
                   onChange={(e) => setNewElection({...newElection, description: e.target.value})}
                 />
+              </div>
+
+              {/* Eligibility Settings */}
+              <div className="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                <div>
+                  <label className="block text-xs font-bold text-blue-700 uppercase mb-1">Min. Age</label>
+                  <input 
+                    type="number" required min="18"
+                    className="w-full p-2 bg-white border border-blue-200 rounded-lg outline-none"
+                    value={newElection.minAge}
+                    onChange={(e) => setNewElection({...newElection, minAge: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-blue-700 uppercase mb-1">District Restriction</label>
+                  <select 
+                    className="w-full p-2 bg-white border border-blue-200 rounded-lg outline-none"
+                    value={newElection.requiredDistrict}
+                    onChange={(e) => setNewElection({...newElection, requiredDistrict: e.target.value})}
+                  >
+                    <option value="All">All Nepal</option>
+                    {nepalDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -218,7 +243,7 @@ const AdminDashboard = () => {
                   <label className="block text-sm font-bold text-slate-700 mb-1">Start Date</label>
                   <input 
                     type="date" required
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                     value={newElection.startDate}
                     onChange={(e) => setNewElection({...newElection, startDate: e.target.value})}
                   />
@@ -227,7 +252,7 @@ const AdminDashboard = () => {
                   <label className="block text-sm font-bold text-slate-700 mb-1">End Date</label>
                   <input 
                     type="date" required
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                     value={newElection.endDate}
                     onChange={(e) => setNewElection({...newElection, endDate: e.target.value})}
                   />
@@ -237,9 +262,9 @@ const AdminDashboard = () => {
               <button 
                 type="submit" 
                 disabled={submitting}
-                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="animate-spin" /> : "Publish Election"}
+                {submitting ? <Loader2 className="animate-spin mx-auto" /> : "Publish Election"}
               </button>
             </form>
           </div>
