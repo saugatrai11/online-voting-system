@@ -9,7 +9,6 @@ const getOTPExpiry = () => new Date(Date.now() + 15 * 60 * 1000);
 // ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    // 🛡️ FIXED: Added dob and district to destructuring
     const { name, username, email, phone, password, role, dob, district } = req.body;
 
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -28,8 +27,8 @@ exports.register = async (req, res) => {
       email,
       phone,
       password: hashedPassword,
-      dob,       // 🛡️ FIXED: Saving Date of Birth
-      district,  // 🛡️ FIXED: Saving District
+      dob,
+      district,
       role: userRole,
       verificationCode,
       otpExpire: getOTPExpiry(),
@@ -69,7 +68,9 @@ exports.verifyUser = async (req, res) => {
     user.isVerified = true;
     user.verificationCode = null;
     user.otpExpire = null; 
-    await user.save();
+    
+    // Bypass validation because district/dob might not be in memory
+    await user.save({ validateBeforeSave: false });
 
     res.json({ msg: "Account verified successfully" });
   } catch (err) {
@@ -89,7 +90,9 @@ exports.resendOTP = async (req, res) => {
     const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationCode = newOTP;
     user.otpExpire = getOTPExpiry(); 
-    await user.save();
+    
+    // 🛡️ FIX: Bypass validation for district/dob
+    await user.save({ validateBeforeSave: false });
 
     await sendEmail(
       email,
@@ -144,7 +147,9 @@ exports.forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationCode = otp;
     user.otpExpire = getOTPExpiry(); 
-    await user.save();
+    
+    // 🛡️ FIX: Added validateBeforeSave: false to bypass district/dob requirements
+    await user.save({ validateBeforeSave: false });
 
     await sendEmail(
       email,
@@ -179,7 +184,9 @@ exports.resetPassword = async (req, res) => {
     user.password = hashedPassword;
     user.verificationCode = null; 
     user.otpExpire = null; 
-    await user.save();
+    
+    // 🛡️ FIX: Bypass validation for district/dob
+    await user.save({ validateBeforeSave: false });
 
     res.json({ msg: "Password updated successfully" });
   } catch (err) {

@@ -12,6 +12,8 @@ import Ballot from './pages/Ballot';
 import AdminDashboard from './pages/AdminDashboard'; 
 import ManageCandidates from './pages/ManageCandidates';
 import Navbar from './components/Navbar';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
 
 // --- Protected Route Helper ---
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -84,6 +86,9 @@ function App() {
 
           {/* --- Utility Routes --- */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Catch-all 404 Page */}
           <Route path="*" element={
