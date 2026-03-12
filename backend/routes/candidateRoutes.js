@@ -5,16 +5,12 @@ const auth = require("../middleware/authMiddleware");
 const admin = require("../middleware/adminMiddleware");
 const logAction = require("../middleware/auditLogger");
 
-// ✅ Matches: POST /api/candidates/add
 router.post("/add", auth, admin, candidateController.addCandidate);
 
-// ✅ Matches: DELETE /api/candidates/:id
-router.delete("/:id", auth, admin, candidateController.deleteCandidate);
-
-// ✅ Matches: GET /api/candidates/election/:electionId
-// Adding "election/" prefix prevents conflict with other GET routes
+// Clean GET route
 router.get("/election/:electionId", auth, candidateController.getCandidates);
 
+// Clean DELETE route with audit log
 router.delete("/:id", auth, admin, logAction("DELETE_CANDIDATE"), candidateController.deleteCandidate);
 
 module.exports = router;
